@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, status, Response
+from fastapi import FastAPI, Depends, status, Response, HTTPException
 from sqlalchemy.orm import Session
 
 from blog.schemas import BlogSchema
@@ -27,6 +27,26 @@ def create_blog(request: BlogSchema, db: Session = Depends(get_db)):
     return new_blog
 
 
+@app.delete('/blog/{blog_id}', status_code=status.HTTP_200_OK)
+def delete_blog(blog_id: int, db: Session = Depends(get_db)):
+    blog = db.query(BlogModel).filter(BlogModel.id == blog_id).first()
+    if not blog:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Blog with id {blog_id} does not exist.")
+    db.delete(blog)
+    db.commit()
+    return {'detail': 'Blog deleted successfully.'}
+
+
+@app.put('/blog/{blog_id}', status_code=status.HTTP_200_OK)
+def update_blog(blog_id: int, request: BlogSchema, db: Session = Depends(get_db)):
+    blog = db.query(BlogModel).filter(BlogModel.id == blog_id)
+    if not blog.first():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Blog with id {blog_id} does not exist.")
+    blog.update(request.dict())
+    db.commit()
+    return {'detail': 'Blog updated successfully.'}
+
+
 @app.get('/blog')
 def all_blogs(db: Session = Depends(get_db)):
     blogs = db.query(BlogModel).all()
@@ -34,9 +54,8 @@ def all_blogs(db: Session = Depends(get_db)):
 
 
 @app.get('/blog/{blog_id}', status_code=status.HTTP_200_OK)
-def specific_blog(blog_id: int, response: Response, db: Session = Depends(get_db)):
+def specific_blog(blog_id: int, db: Session = Depends(get_db)):
     blog = db.query(BlogModel).filter(BlogModel.id == blog_id).first()
     if not blog:
-        response.status_code = status.HTTP_400_BAD_REQUEST
-        return {'error': f'Blog with id "{blog_id}" does not exist in the database'}
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Blog with id {blog_id} does not exist.")
     return blog
