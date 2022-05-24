@@ -2,15 +2,18 @@ from typing import List
 
 from fastapi import FastAPI, Depends, status, Response, HTTPException
 from sqlalchemy.orm import Session
+# TODO: install this package and bcrypt
+from passlib.context import CryptoContext
 
-from blog.schemas import BlogSchema, ShowBlogSchema
-from blog.models import BlogModel
+from blog.schemas import BlogSchema, ShowBlogSchema, UserSchema
+from blog.models import BlogModel, UserModel
 from blog.database import engine, SessionLocal
 
 
 app = FastAPI()
 
 BlogModel.metadata.create_all(bind=engine)
+
 
 def get_db():
     db = SessionLocal()
@@ -61,3 +64,17 @@ def specific_blog(blog_id: int, db: Session = Depends(get_db)):
     if not blog:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Blog with id {blog_id} does not exist.")
     return blog
+
+
+pwd_ctx = CryptoContext(schemas=['bcrypt'], deprecated='auto')
+
+
+@app.post('/user')
+def create_user(request: UserSchema, db: Session = Depends(get_db)):
+    hashed_password = pwd_ctx.hash(request.password)
+    new_user = UserModel(name=request.name, email=request.email, password=hashed_password)
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return new_user
+
